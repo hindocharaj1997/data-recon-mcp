@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # MySQL for testing - simulates both source and target
+  mysql:
+    image: mysql:8.0
+    container_name: data_recon_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: recon_user
+      MYSQL_PASSWORD: recon_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_data:
