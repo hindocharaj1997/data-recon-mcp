@@ -7,19 +7,20 @@ An MCP (Model Context Protocol) server for data reconciliation between MySQL and
 ### Installation
 
 ```bash
-pip install git+https://github.com/hindocharaj1997/data-recon-mcp.git
+pip install data-recon-mcp
 ```
 
 ### Configuration
 
 Add to your MCP client configuration:
 
-**For Claude Desktop** (`~/.config/claude/mcp.json`):
+**For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "data-recon": {
-      "command": "data-recon-server"
+      "command": "python3",
+      "args": ["-m", "mcp_server"]
     }
   }
 }
@@ -29,12 +30,23 @@ Add to your MCP client configuration:
 ```json
 {
   "data-recon": {
-    "command": "data-recon-server"
+    "command": "python3",
+    "args": ["-m", "mcp_server"]
   }
 }
 ```
 
-That's it! The server automatically starts an embedded backend - no separate processes needed.
+**For Perplexity** (MCP Settings):
+```json
+{
+  "data-recon": {
+    "command": "python3",
+    "args": ["-m", "mcp_server"]
+  }
+}
+```
+
+That's it! Restart your LLM client and start using the tools.
 
 ## ✨ Features
 
@@ -48,11 +60,10 @@ That's it! The server automatically starts an embedded backend - no separate pro
 
 ### Using a Centralized Backend
 
-For team environments where you want everyone to share the same datasources and configuration, you can run a separate FastAPI backend server:
+For team environments where you want everyone to share the same datasources:
 
 **1. Start the centralized backend:**
 ```bash
-# On your server
 git clone https://github.com/hindocharaj1997/data-recon-mcp.git
 cd data-recon-mcp
 pip install -e .
@@ -63,7 +74,8 @@ uvicorn data_recon.main:app --host 0.0.0.0 --port 8000
 ```json
 {
   "data-recon": {
-    "command": "data-recon-server",
+    "command": "python3",
+    "args": ["-m", "mcp_server"],
     "env": {
       "FASTAPI_URL": "http://your-server.company.com:8000"
     }
@@ -71,19 +83,17 @@ uvicorn data_recon.main:app --host 0.0.0.0 --port 8000
 }
 ```
 
-When `FASTAPI_URL` is set, the MCP server **skips** starting an embedded backend and uses your centralized server instead.
-
 ### Pre-configured Data Sources
 
-You can pre-register data sources via environment variables:
+Register data sources via environment variables:
 
 ```json
 {
   "data-recon": {
-    "command": "data-recon-server",
+    "command": "python3",
+    "args": ["-m", "mcp_server"],
     "env": {
-      "DATASOURCE_MYSQL_PROD": "{\"type\":\"mysql\",\"host\":\"localhost\",\"port\":3306,\"username\":\"user\",\"password\":\"pass\",\"database\":\"mydb\"}",
-      "DATASOURCE_SNOWFLAKE_DW": "{\"type\":\"snowflake\",\"account\":\"xxx-yyy\",\"username\":\"user\",\"password\":\"pass\",\"warehouse\":\"COMPUTE_WH\"}"
+      "DATASOURCE_MYSQL_PROD": "{\"type\":\"mysql\",\"host\":\"localhost\",\"port\":3306,\"username\":\"user\",\"password\":\"pass\",\"database\":\"mydb\"}"
     }
   }
 }
@@ -117,7 +127,7 @@ You can pre-register data sources via environment variables:
                       ▼
 ┌─────────────────────────────────────────────────────────┐
 │                 MCP Server                              │
-│            (data-recon-server)                          │
+│            (python3 -m mcp_server)                      │
 ├─────────────────────────────────────────────────────────┤
 │  Embedded FastAPI Backend (or external via FASTAPI_URL) │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
