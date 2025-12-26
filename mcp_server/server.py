@@ -422,11 +422,89 @@ async def main():
         )
 
 
+# =============================================================================
+# EMBEDDED FASTAPI SERVER - For all-in-one distribution
+# =============================================================================
+
+def start_embedded_backend(host: str = "127.0.0.1", port: int = 8000):
+    """Start the FastAPI backend in a background thread.
+    
+    This allows the MCP server to be fully self-contained - users don't need
+    to run a separate backend process.
+    """
+    import threading
+    import time
+    import uvicorn
+    import httpx
+    
+    # Import the FastAPI app
+    from data_recon.main import app
+    from data_recon.database import init_db
+    
+    # Initialize database tables
+    init_db()
+    
+    # Configure uvicorn to run silently (no access logs cluttering stderr)
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        log_level="warning",  # Suppress info logs
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    
+    # Run in a daemon thread so it dies when the main process exits
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    
+    # Wait for the server to be ready (max 10 seconds)
+    for i in range(100):
+        try:
+            with httpx.Client(timeout=1.0) as client:
+                response = client.get(f"http://{host}:{port}/health")
+                if response.status_code == 200:
+                    print(f"[data-recon] Backend ready at http://{host}:{port}", file=sys.stderr)
+                    return True
+        except:
+            pass
+        time.sleep(0.1)
+    
+    print("[data-recon] WARNING: Backend may not be ready", file=sys.stderr)
+    return False
+
+
 def run():
-    """Entry point for pip-installed command 'data-recon-server'."""
+    """Entry point for pip-installed command 'data-recon-server'.
+    
+    This is the all-in-one entry point that:
+    1. Starts the FastAPI backend automatically
+    2. Runs the MCP server
+    3. Cleans up when done
+    """
+    import os
+    
+    # Check if user wants to use an external backend
+    external_url = os.environ.get("FASTAPI_URL")
+    
+    if external_url:
+        # User provided an external backend URL - use it
+        print(f"[data-recon] Using external backend: {external_url}", file=sys.stderr)
+    else:
+        # Start embedded backend
+        print("[data-recon] Starting embedded backend...", file=sys.stderr)
+        
+        # Set the environment variable so tools.py knows where to connect
+        os.environ["FASTAPI_URL"] = "http://127.0.0.1:8000"
+        
+        # Start the backend
+        if not start_embedded_backend():
+            print("[data-recon] Failed to start backend", file=sys.stderr)
+            sys.exit(1)
+    
+    # Run the MCP server
     asyncio.run(main())
 
 
 if __name__ == "__main__":
     run()
-
